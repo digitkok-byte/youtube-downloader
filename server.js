@@ -10,22 +10,19 @@ const PORT = 3500;
 app.use(express.json());
 app.use(express.static(__dirname));
 
+const COOKIE_ARGS = ['--cookies-from-browser', 'chrome'];
+
 // Health check
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', uptime: process.uptime() });
 });
 
-// Get video info (title, available formats)
+// Get video info
 app.post('/api/info', (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'URL required' });
 
-    const proc = spawn('yt-dlp', [
-        '--dump-json',
-        '--no-download',
-        url
-    ]);
-
+    const proc = spawn('yt-dlp', [...COOKIE_ARGS, '--dump-json', '--no-download', url]);
     let data = '';
     let error = '';
 
@@ -40,9 +37,8 @@ app.post('/api/info', (req, res) => {
             const info = JSON.parse(data);
             const formats = (info.formats || [])
                 .filter(f => f.height && f.ext === 'mp4' && f.vcodec !== 'none')
-                .map(f => ({ height: f.height, formatId: f.format_id }));
-
-            const heights = [...new Set(formats.map(f => f.height))].sort((a, b) => b - a);
+                .map(f => f.height);
+            const heights = [...new Set(formats)].sort((a, b) => b - a);
 
             res.json({
                 title: info.title,
@@ -64,26 +60,19 @@ app.post('/api/download', (req, res) => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ytdl-'));
     const outputTemplate = path.join(tmpDir, '%(title)s.%(ext)s');
 
-    let args;
+    let args = [...COOKIE_ARGS];
     if (format === 'mp3') {
-        args = [
-            '-x',
-            '--audio-format', 'mp3',
-            '--audio-quality', '0',
-            '-o', outputTemplate,
-            url
-        ];
+        args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0', '-o', outputTemplate, url);
     } else {
-        args = [
+        args.push(
             '-f', `bestvideo[height<=${resolution || 1080}][ext=mp4]+bestaudio[ext=m4a]/best[height<=${resolution || 1080}][ext=mp4]/best[height<=${resolution || 1080}]`,
             '--merge-output-format', 'mp4',
             '-o', outputTemplate,
             url
-        ];
+        );
     }
 
     const proc = spawn('yt-dlp', args);
-
     let error = '';
     proc.stderr.on('data', chunk => error += chunk);
 
@@ -101,13 +90,8 @@ app.post('/api/download', (req, res) => {
             return res.status(500).json({ error: 'File not found after download' });
         }
 
-        const filePath = path.join(tmpDir, file);
-
-        res.download(filePath, file, err => {
+        res.download(path.join(tmpDir, file), file, () => {
             fs.rmSync(tmpDir, { recursive: true, force: true });
-            if (err && !res.headersSent) {
-                res.status(500).json({ error: 'File transfer failed' });
-            }
         });
     });
 });
