@@ -188,6 +188,56 @@
             color: #00897b;
         }
 
+        .video-info {
+            display: none;
+            margin-top: 16px;
+            padding: 14px 18px;
+            background: rgba(0, 137, 123, 0.06);
+            border-radius: 14px;
+            border: 1px solid #b2dfdb;
+        }
+
+        .video-info .title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #004d40;
+            word-break: break-word;
+        }
+
+        .video-info .meta {
+            font-size: 13px;
+            color: #80cbc4;
+            margin-top: 4px;
+        }
+
+        .progress-bar {
+            display: none;
+            margin-top: 12px;
+            height: 6px;
+            border-radius: 3px;
+            background: #e0f2f1;
+            overflow: hidden;
+        }
+
+        .progress-bar .fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00897b, #26a69a);
+            border-radius: 3px;
+            animation: loading 2s ease-in-out infinite;
+            width: 40%;
+        }
+
+        @keyframes loading {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(350%); }
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
         @media (max-width: 480px) {
             .container {
                 padding: 32px 24px;
@@ -256,6 +306,15 @@
             </button>
         </div>
 
+        <div class="video-info" id="video-info">
+            <div class="title" id="video-title"></div>
+            <div class="meta" id="video-meta"></div>
+        </div>
+
+        <div class="progress-bar" id="progress-bar">
+            <div class="fill"></div>
+        </div>
+
         <div class="status" id="status"></div>
     </div>
 
@@ -265,6 +324,13 @@
         const resolutionField = document.getElementById('resolution-field');
         const resolutionSelect = document.getElementById('resolution');
         const statusEl = document.getElementById('status');
+        const videoInfo = document.getElementById('video-info');
+        const videoTitle = document.getElementById('video-title');
+        const videoMeta = document.getElementById('video-meta');
+        const progressBar = document.getElementById('progress-bar');
+        const btnDownload = document.getElementById('btn-download');
+
+        let isDownloading = false;
 
         formatSelect.addEventListener('change', () => {
             if (formatSelect.value === 'mp3') {
@@ -279,7 +345,28 @@
             return pattern.test(url);
         }
 
-        function handleDownload() {
+        async function fetchVideoInfo(url) {
+            showStatus('Получение информации о видео...', 'success');
+            try {
+                const resp = await fetch('/api/info', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    throw new Error(err.error);
+                }
+                return await resp.json();
+            } catch (e) {
+                showStatus('Не удалось получить информацию: ' + e.message, 'error');
+                return null;
+            }
+        }
+
+        async function handleDownload() {
+            if (isDownloading) return;
+
             const url = urlInput.value.trim();
 
             if (!url) {
@@ -295,13 +382,49 @@
             const format = formatSelect.value;
             const resolution = format === 'mp4' ? resolutionSelect.value : null;
 
-            showStatus('Подготовка к скачиванию...', 'success');
+            isDownloading = true;
+            btnDownload.disabled = true;
+            btnDownload.textContent = 'Загрузка...';
+            progressBar.style.display = 'block';
+            showStatus('Скачивание и конвертация... Это может занять время', 'success');
 
-            console.log('Download request:', { url, format, resolution });
+            try {
+                const resp = await fetch('/api/download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, format, resolution })
+                });
 
-            setTimeout(() => {
-                showStatus('Готово! Файл скачивается...', 'success');
-            }, 1500);
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    throw new Error(err.error);
+                }
+
+                const disposition = resp.headers.get('Content-Disposition');
+                let filename = `video.${format}`;
+                if (disposition) {
+                    const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\n]+)/i);
+                    if (match) filename = decodeURIComponent(match[1]);
+                }
+
+                const blob = await resp.blob();
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(a.href);
+
+                showStatus('Файл скачан!', 'success');
+            } catch (e) {
+                showStatus('Ошибка: ' + e.message, 'error');
+            } finally {
+                isDownloading = false;
+                btnDownload.disabled = false;
+                btnDownload.textContent = 'Скачать';
+                progressBar.style.display = 'none';
+            }
         }
 
         function handleReset() {
@@ -311,6 +434,8 @@
             resolutionField.classList.remove('hidden');
             statusEl.textContent = '';
             statusEl.className = 'status';
+            videoInfo.style.display = 'none';
+            progressBar.style.display = 'none';
         }
 
         function showStatus(message, type) {
@@ -319,14 +444,16 @@
         }
 
         urlInput.addEventListener('paste', () => {
-            setTimeout(() => {
-                if (isValidYouTubeUrl(urlInput.value)) {
-                    showStatus('Ссылка распознана', 'success');
-                    setTimeout(() => {
-                        if (statusEl.textContent === 'Ссылка распознана') {
-                            statusEl.textContent = '';
-                        }
-                    }, 2000);
+            setTimeout(async () => {
+                const url = urlInput.value.trim();
+                if (isValidYouTubeUrl(url)) {
+                    const info = await fetchVideoInfo(url);
+                    if (info) {
+                        videoTitle.textContent = info.title;
+                        videoMeta.textContent = info.duration || '';
+                        videoInfo.style.display = 'block';
+                        showStatus('Готово к скачиванию', 'success');
+                    }
                 }
             }, 100);
         });
