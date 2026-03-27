@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Downloader</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #e0f7fa 0%, #ffffff 50%, #e0f2f1 100%);
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 560px;
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 150, 136, 0.15);
+            border-radius: 24px;
+            padding: 48px 40px;
+            box-shadow: 0 8px 32px rgba(0, 128, 128, 0.08);
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+
+        .logo h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #00796b;
+            letter-spacing: -0.5px;
+        }
+
+        .logo p {
+            font-size: 15px;
+            color: #80cbc4;
+            margin-top: 6px;
+            font-weight: 400;
+        }
+
+        .field {
+            margin-bottom: 20px;
+        }
+
+        .field label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #00695c;
+            margin-bottom: 8px;
+        }
+
+        .field input,
+        .field select {
+            width: 100%;
+            padding: 14px 18px;
+            font-size: 16px;
+            font-family: 'Inter', sans-serif;
+            border: 2px solid #b2dfdb;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #004d40;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+
+        .field input::placeholder {
+            color: #80cbc4;
+        }
+
+        .field input:focus,
+        .field select:focus {
+            border-color: #00897b;
+            box-shadow: 0 0 0 4px rgba(0, 137, 123, 0.1);
+        }
+
+        .select-wrapper {
+            position: relative;
+        }
+
+        .select-wrapper::after {
+            content: '';
+            position: absolute;
+            right: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 6px solid #00897b;
+            pointer-events: none;
+        }
+
+        .row {
+            display: flex;
+            gap: 14px;
+        }
+
+        .row .field {
+            flex: 1;
+        }
+
+        .resolution-field {
+            transition: opacity 0.3s, max-height 0.3s;
+        }
+
+        .resolution-field.hidden {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 28px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 16px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-download {
+            background: linear-gradient(135deg, #00897b, #00695c);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(0, 105, 92, 0.3);
+        }
+
+        .btn-download:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0, 105, 92, 0.4);
+        }
+
+        .btn-download:active {
+            transform: translateY(0);
+        }
+
+        .btn-reset {
+            background: #e0f2f1;
+            color: #00796b;
+            border: 2px solid #b2dfdb;
+        }
+
+        .btn-reset:hover {
+            background: #b2dfdb;
+        }
+
+        .status {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #00796b;
+            min-height: 20px;
+            font-weight: 500;
+        }
+
+        .status.error {
+            color: #e53935;
+        }
+
+        .status.success {
+            color: #00897b;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 32px 24px;
+                border-radius: 20px;
+            }
+
+            .row {
+                flex-direction: column;
+                gap: 0;
+            }
+
+            .logo h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <h1>YouTube Downloader</h1>
+            <p>Скачивай видео и аудио</p>
+        </div>
+
+        <div class="field">
+            <label for="url">Ссылка на видео</label>
+            <input
+                type="url"
+                id="url"
+                placeholder="https://www.youtube.com/watch?v=..."
+                autocomplete="off"
+            />
+        </div>
+
+        <div class="row">
+            <div class="field">
+                <label for="format">Формат</label>
+                <div class="select-wrapper">
+                    <select id="format">
+                        <option value="mp4">MP4 (видео)</option>
+                        <option value="mp3">MP3 (аудио)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="field resolution-field" id="resolution-field">
+                <label for="resolution">Разрешение</label>
+                <div class="select-wrapper">
+                    <select id="resolution">
+                        <option value="2160">4K (2160p)</option>
+                        <option value="1080" selected>Full HD (1080p)</option>
+                        <option value="720">HD (720p)</option>
+                        <option value="480">480p</option>
+                        <option value="360">360p</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="buttons">
+            <button class="btn btn-download" id="btn-download" onclick="handleDownload()">
+                Скачать
+            </button>
+            <button class="btn btn-reset" onclick="handleReset()">
+                Сбросить
+            </button>
+        </div>
+
+        <div class="status" id="status"></div>
+    </div>
+
+    <script>
+        const urlInput = document.getElementById('url');
+        const formatSelect = document.getElementById('format');
+        const resolutionField = document.getElementById('resolution-field');
+        const resolutionSelect = document.getElementById('resolution');
+        const statusEl = document.getElementById('status');
+
+        formatSelect.addEventListener('change', () => {
+            if (formatSelect.value === 'mp3') {
+                resolutionField.classList.add('hidden');
+            } else {
+                resolutionField.classList.remove('hidden');
+            }
+        });
+
+        function isValidYouTubeUrl(url) {
+            const pattern = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/)|youtu\.be\/)/;
+            return pattern.test(url);
+        }
+
+        function handleDownload() {
+            const url = urlInput.value.trim();
+
+            if (!url) {
+                showStatus('Вставьте ссылку на видео', 'error');
+                return;
+            }
+
+            if (!isValidYouTubeUrl(url)) {
+                showStatus('Некорректная ссылка YouTube', 'error');
+                return;
+            }
+
+            const format = formatSelect.value;
+            const resolution = format === 'mp4' ? resolutionSelect.value : null;
+
+            showStatus('Подготовка к скачиванию...', 'success');
+
+            console.log('Download request:', { url, format, resolution });
+
+            setTimeout(() => {
+                showStatus('Готово! Файл скачивается...', 'success');
+            }, 1500);
+        }
+
+        function handleReset() {
+            urlInput.value = '';
+            formatSelect.value = 'mp4';
+            resolutionSelect.value = '1080';
+            resolutionField.classList.remove('hidden');
+            statusEl.textContent = '';
+            statusEl.className = 'status';
+        }
+
+        function showStatus(message, type) {
+            statusEl.textContent = message;
+            statusEl.className = 'status ' + type;
+        }
+
+        urlInput.addEventListener('paste', () => {
+            setTimeout(() => {
+                if (isValidYouTubeUrl(urlInput.value)) {
+                    showStatus('Ссылка распознана', 'success');
+                    setTimeout(() => {
+                        if (statusEl.textContent === 'Ссылка распознана') {
+                            statusEl.textContent = '';
+                        }
+                    }, 2000);
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>
