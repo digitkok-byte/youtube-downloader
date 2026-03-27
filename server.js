@@ -10,6 +10,11 @@ const PORT = 3500;
 app.use(express.json());
 app.use(express.static(__dirname));
 
+// Health check
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', uptime: process.uptime() });
+});
+
 // Get video info (title, available formats)
 app.post('/api/info', (req, res) => {
     const { url } = req.body;

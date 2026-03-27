@@ -54,6 +54,43 @@
             font-weight: 400;
         }
 
+        .server-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 10px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #b0bec5;
+        }
+
+        .server-status .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #b0bec5;
+            transition: background 0.3s;
+        }
+
+        .server-status.online .dot {
+            background: #4caf50;
+            box-shadow: 0 0 6px rgba(76, 175, 80, 0.5);
+        }
+
+        .server-status.online {
+            color: #4caf50;
+        }
+
+        .server-status.offline .dot {
+            background: #e53935;
+            box-shadow: 0 0 6px rgba(229, 57, 53, 0.4);
+        }
+
+        .server-status.offline {
+            color: #e53935;
+        }
+
         .field {
             margin-bottom: 20px;
         }
@@ -260,6 +297,10 @@
         <div class="logo">
             <h1>YouTube Downloader</h1>
             <p>Скачивай видео и аудио</p>
+            <div class="server-status" id="server-status">
+                <span class="dot"></span>
+                <span class="label">Проверка сервера...</span>
+            </div>
         </div>
 
         <div class="field">
@@ -331,6 +372,30 @@
         const btnDownload = document.getElementById('btn-download');
 
         let isDownloading = false;
+        const serverStatus = document.getElementById('server-status');
+
+        // Server health check
+        async function checkServer() {
+            try {
+                const resp = await fetch('/api/health', { signal: AbortSignal.timeout(3000) });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    const mins = Math.floor(data.uptime / 60);
+                    serverStatus.className = 'server-status online';
+                    serverStatus.querySelector('.label').textContent = `Сервер онлайн (${mins} мин)`;
+                    btnDownload.disabled = false;
+                } else {
+                    throw new Error();
+                }
+            } catch {
+                serverStatus.className = 'server-status offline';
+                serverStatus.querySelector('.label').textContent = 'Сервер офлайн';
+                btnDownload.disabled = true;
+            }
+        }
+
+        checkServer();
+        setInterval(checkServer, 15000);
 
         formatSelect.addEventListener('change', () => {
             if (formatSelect.value === 'mp3') {
