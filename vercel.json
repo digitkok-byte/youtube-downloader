@@ -1,0 +1,15 @@
+{
+  "rewrites": [
+    { "source": "/api/health", "destination": "/api/health" },
+    { "source": "/api/info", "destination": "/api/info" },
+    { "source": "/api/download", "destination": "/api/download" }
+  ],
+  "functions": {
+    "api/download.js": {
+      "maxDuration": 60
+    },
+    "api/info.js": {
+      "maxDuration": 30
+    }
+  }
+}
